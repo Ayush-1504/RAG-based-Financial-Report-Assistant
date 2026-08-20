@@ -11,31 +11,35 @@ from utils.embeddings import get_embedding_model
 
 
 # ============================================================
-# CONFIGURATION
+# LOAD ENVIRONMENT VARIABLES
 # ============================================================
 
 load_dotenv()
 
 
-def get_api_key():
-    """Get Gemini API key from local .env or Streamlit secrets."""
+# ============================================================
+# GOOGLE API KEY
+# ============================================================
 
-    api_key = os.getenv("GOOGLE_API_KEY")
+# Local:
+#     .env file se API key read hogi
+#
+# Streamlit Cloud:
+#     st.secrets["GOOGLE_API_KEY"] se API key read hogi
 
-    if not api_key:
-        try:
-            api_key = st.secrets["GOOGLE_API_KEY"]
-        except Exception:
-            api_key = None
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-    return api_key
+if not GOOGLE_API_KEY:
 
+    try:
+        GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
 
-API_KEY = get_api_key()
+    except Exception:
+        GOOGLE_API_KEY = None
 
 
 # ============================================================
-# PAGE CONFIG
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -47,128 +51,22 @@ st.set_page_config(
 
 
 # ============================================================
-# CUSTOM CSS
+# CHECK API KEY
 # ============================================================
 
-st.markdown(
-    """
-    <style>
+if not GOOGLE_API_KEY:
 
-    /* ---------- Main App ---------- */
+    st.error(
+        "⚠️ GOOGLE_API_KEY is not configured."
+    )
 
-    .stApp {
-        background-color: #f7f8fc;
-    }
+    st.info(
+        "Add GOOGLE_API_KEY to your .env file "
+        "for local development or Streamlit Secrets "
+        "for deployment."
+    )
 
-    /* ---------- Header ---------- */
-
-    .hero {
-        padding: 25px 30px;
-        border-radius: 18px;
-        background: linear-gradient(
-            135deg,
-            #111827 0%,
-            #1f2937 100%
-        );
-        color: white;
-        margin-bottom: 25px;
-    }
-
-    .hero-title {
-        font-size: 34px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-
-    .hero-subtitle {
-        font-size: 16px;
-        color: #d1d5db;
-        margin-top: 0px;
-    }
-
-    /* ---------- Cards ---------- */
-
-    .info-card {
-        background: white;
-        padding: 20px;
-        border-radius: 15px;
-        border: 1px solid #e5e7eb;
-        margin-bottom: 15px;
-    }
-
-    .answer-card {
-        background: white;
-        padding: 25px;
-        border-radius: 16px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.04);
-        margin-top: 10px;
-    }
-
-    .source-card {
-        background: #ffffff;
-        padding: 13px 16px;
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-        margin-bottom: 8px;
-        font-size: 14px;
-    }
-
-    /* ---------- Section Titles ---------- */
-
-    .section-title {
-        font-size: 22px;
-        font-weight: 650;
-        margin-top: 15px;
-        margin-bottom: 10px;
-        color: #111827;
-    }
-
-    /* ---------- Sidebar ---------- */
-
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-    }
-
-    .sidebar-title {
-        font-size: 22px;
-        font-weight: 700;
-        color: #111827;
-    }
-
-    .sidebar-text {
-        font-size: 14px;
-        color: #6b7280;
-    }
-
-    /* ---------- Buttons ---------- */
-
-    .stButton > button {
-        border-radius: 10px;
-        font-weight: 600;
-        min-height: 45px;
-    }
-
-    /* ---------- Text Input ---------- */
-
-    div[data-baseweb="input"] {
-        border-radius: 10px;
-    }
-
-    /* ---------- Footer ---------- */
-
-    .footer {
-        text-align: center;
-        color: #9ca3af;
-        font-size: 13px;
-        margin-top: 40px;
-        padding-bottom: 15px;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    st.stop()
 
 
 # ============================================================
@@ -191,16 +89,10 @@ if "questions" not in st.session_state:
 
 with st.sidebar:
 
-    st.markdown(
-        '<div class="sidebar-title">📄 Financial Report</div>',
-        unsafe_allow_html=True
-    )
+    st.title("📄 Financial Report")
 
-    st.markdown(
-        '<div class="sidebar-text">'
-        'Upload a financial report to start analyzing it.'
-        '</div>',
-        unsafe_allow_html=True
+    st.caption(
+        "Upload an annual report and ask questions using AI."
     )
 
     st.divider()
@@ -208,19 +100,21 @@ with st.sidebar:
     uploaded_file = st.file_uploader(
         "Upload Annual Report",
         type=["pdf"],
-        help="Upload a PDF financial or annual report."
+        help="Upload a financial or annual report in PDF format."
     )
 
-    if uploaded_file:
+    if uploaded_file is not None:
 
         st.success("PDF uploaded")
 
-        st.caption(
-            f"📎 {uploaded_file.name}"
+        st.write(
+            f"**File:** {uploaded_file.name}"
         )
 
+        file_size = uploaded_file.size / (1024 * 1024)
+
         st.caption(
-            f"📦 {uploaded_file.size / 1024 / 1024:.2f} MB"
+            f"Size: {file_size:.2f} MB"
         )
 
         st.divider()
@@ -239,34 +133,39 @@ with st.sidebar:
                 uploaded_file.name
             )
 
-            with open(pdf_path, "wb") as f:
-                shutil.copyfileobj(
-                    uploaded_file,
-                    f
-                )
+            try:
 
-            with st.spinner(
-                "Processing report and building vector database..."
-            ):
+                with open(pdf_path, "wb") as f:
 
-                try:
+                    shutil.copyfileobj(
+                        uploaded_file,
+                        f
+                    )
+
+                with st.spinner(
+                    "📄 Reading PDF and creating vector database..."
+                ):
 
                     create_vector_store(
                         pdf_path
                     )
 
-                    st.session_state.processed = True
-                    st.session_state.file_name = uploaded_file.name
+                st.session_state.processed = True
 
-                    st.success(
-                        "Report processed successfully!"
-                    )
+                st.session_state.file_name = (
+                    uploaded_file.name
+                )
 
-                except Exception as e:
+                st.success(
+                    "✅ Report processed successfully!"
+                )
 
-                    st.error(
-                        f"Processing failed: {e}"
-                    )
+            except Exception as e:
+
+                st.error(
+                    f"❌ Processing failed: {e}"
+                )
+
 
     else:
 
@@ -276,104 +175,91 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown(
-        "**How it works**"
-    )
+    st.subheader("⚙️ How it works")
 
-    st.markdown(
+    st.write(
         """
-        1. 📄 Upload PDF  
-        2. ✂️ Split document  
-        3. 🧠 Create embeddings  
-        4. 🔎 Search with FAISS  
-        5. 🤖 Generate answer with Gemini
+        **1.** 📄 Upload PDF
+
+        **2.** ✂️ Split document
+
+        **3.** 🧠 HuggingFace Embeddings
+
+        **4.** 🔎 FAISS Semantic Search
+
+        **5.** 🤖 Gemini generates answer
         """
     )
 
     st.divider()
 
     st.caption(
-        "Built with Python • LangChain • FAISS • Gemini • Streamlit"
+        "Python • LangChain • FAISS • Gemini • Streamlit"
     )
 
 
 # ============================================================
-# MAIN HERO
+# MAIN HEADER
 # ============================================================
 
-st.markdown(
-    """
-<div class="hero">
-    <div class="hero-title">
-        💰 AI Financial Assistant
-    </div>
-    <div class="hero-subtitle">
-        Ask questions about financial reports using
-        Retrieval-Augmented Generation (RAG).
-    </div>
-</div>
-""",
-    unsafe_allow_html=True
+st.title("💰 AI Financial Assistant")
+
+st.write(
+    "Analyze annual reports and ask questions using "
+    "Retrieval-Augmented Generation (RAG)."
 )
 
+st.divider()
+
 
 # ============================================================
-# STATUS CARDS
+# FEATURE CARDS
 # ============================================================
 
 col1, col2, col3 = st.columns(3)
 
+
 with col1:
 
-    st.markdown(
-        """
-        <div class="info-card">
-            <b>📄 Document</b><br>
-            <span style="color:#6b7280;">
-            Financial Report
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.subheader("📄 Financial Reports")
+
+    st.write(
+        "Upload annual reports in PDF format "
+        "and process them automatically."
     )
+
 
 with col2:
 
-    st.markdown(
-        """
-        <div class="info-card">
-            <b>🧠 Retrieval</b><br>
-            <span style="color:#6b7280;">
-            FAISS Semantic Search
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.subheader("🔎 Smart Retrieval")
+
+    st.write(
+        "FAISS searches the report and retrieves "
+        "the most relevant sections."
     )
+
 
 with col3:
 
-    st.markdown(
-        """
-        <div class="info-card">
-            <b>🤖 Generation</b><br>
-            <span style="color:#6b7280;">
-            Google Gemini
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.subheader("🤖 AI Answers")
+
+    st.write(
+        "Google Gemini generates answers using "
+        "the retrieved report context."
     )
 
 
+st.divider()
+
+
 # ============================================================
-# CURRENT DOCUMENT STATUS
+# REPORT STATUS
 # ============================================================
 
 if st.session_state.processed:
 
     st.success(
-        f"✅ Ready to answer questions from "
+        f"✅ Ready to analyze: "
         f"**{st.session_state.file_name}**"
     )
 
@@ -381,29 +267,27 @@ else:
 
     st.info(
         "👈 Upload a financial report from the sidebar "
-        "and click **Process Report**."
+        "and click **Process Report** to begin."
     )
 
 
 # ============================================================
-# QUESTION AREA
+# QUESTION SECTION
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">💬 Ask Questions About the Report</div>',
-    unsafe_allow_html=True
+st.subheader(
+    "💬 Ask Questions About the Report"
 )
 
 question = st.text_input(
-    "Question",
-    placeholder="e.g. What was Apple's total net sales in 2025?",
-    label_visibility="collapsed"
+    "Enter your question",
+    placeholder=(
+        "Example: What was Apple's total net sales in 2025?"
+    )
 )
-
 
 ask_button = st.button(
     "🤖 Ask Question",
-    type="primary",
     use_container_width=True
 )
 
@@ -417,7 +301,7 @@ if ask_button:
     if not question.strip():
 
         st.warning(
-            "Please enter a question first."
+            "Please enter a question."
         )
 
     elif not os.path.exists("faiss_index"):
@@ -426,31 +310,25 @@ if ask_button:
             "Please upload and process a report first."
         )
 
-    elif not API_KEY:
-
-        st.error(
-            "GOOGLE_API_KEY is not configured."
-        )
-
     else:
 
         try:
 
-            with st.spinner(
-                "🔎 Searching the report..."
-            ):
+            # =================================================
+            # LOAD EMBEDDING MODEL
+            # =================================================
 
-                # ------------------------------------------------
-                # Load local embedding model
-                # ------------------------------------------------
+            with st.spinner(
+                "🔎 Searching the financial report..."
+            ):
 
                 embedding_model = (
                     get_embedding_model()
                 )
 
-                # ------------------------------------------------
-                # Load FAISS
-                # ------------------------------------------------
+                # =================================================
+                # LOAD FAISS
+                # =================================================
 
                 vector_store = FAISS.load_local(
                     "faiss_index",
@@ -458,9 +336,9 @@ if ask_button:
                     allow_dangerous_deserialization=True
                 )
 
-                # ------------------------------------------------
-                # Retriever
-                # ------------------------------------------------
+                # =================================================
+                # RETRIEVER
+                # =================================================
 
                 retriever = vector_store.as_retriever(
                     search_kwargs={
@@ -468,70 +346,92 @@ if ask_button:
                     }
                 )
 
-                # ------------------------------------------------
-                # Retrieve relevant chunks
-                # ------------------------------------------------
+                # =================================================
+                # RETRIEVE DOCUMENTS
+                # =================================================
 
                 docs = retriever.invoke(
                     question
                 )
 
-                # ------------------------------------------------
-                # Build context
-                # ------------------------------------------------
+                # =================================================
+                # BUILD CONTEXT
+                # =================================================
+
+                context_parts = []
+
+                for doc in docs:
+
+                    context_parts.append(
+                        doc.page_content
+                    )
 
                 context = "\n\n".join(
-                    doc.page_content
-                    for doc in docs
+                    context_parts
                 )
+
+
+            # =================================================
+            # GEMINI
+            # =================================================
 
             with st.spinner(
                 "🤖 Generating answer..."
             ):
 
-                # ------------------------------------------------
-                # Gemini
-                # ------------------------------------------------
-
                 llm = ChatGoogleGenerativeAI(
-                    model="gemini-3.6-flash",
-                    google_api_key=API_KEY,
+                    model="gemini-3.5-flash",
+                    google_api_key=GOOGLE_API_KEY,
                     temperature=0
                 )
 
-                # ------------------------------------------------
-                # Prompt
-                # ------------------------------------------------
+                # =================================================
+                # PROMPT
+                # =================================================
 
                 prompt = f"""
 You are an AI Financial Report Assistant.
 
-Answer the user's question using ONLY the
-information contained in the provided context.
+Your job is to answer questions about the uploaded
+financial report.
 
-Do not use outside knowledge.
+IMPORTANT RULES:
 
-If the answer cannot be found in the context,
-say:
+1. Answer ONLY using the provided context.
+2. Do not use outside knowledge.
+3. Do not invent numbers or facts.
+4. If the answer is not available in the context,
+   clearly say that the information could not be found
+   in the uploaded report.
+5. Give a concise and professional answer.
+6. When financial figures are available, mention
+   the appropriate units such as million or billion.
 
-"I could not find this information in the uploaded report."
+--------------------------------------------------
+REPORT CONTEXT
+--------------------------------------------------
 
-Give a clear, concise and professional answer.
-
-Context:
 {context}
 
-Question:
+--------------------------------------------------
+USER QUESTION
+--------------------------------------------------
+
 {question}
+
+--------------------------------------------------
+ANSWER
+--------------------------------------------------
 """
 
                 response = llm.invoke(
                     prompt
                 )
 
-            # ------------------------------------------------
-            # Save question
-            # ------------------------------------------------
+
+            # =================================================
+            # SAVE QUESTION
+            # =================================================
 
             if question not in st.session_state.questions:
 
@@ -540,59 +440,50 @@ Question:
                     question
                 )
 
-            # Keep last 5
             st.session_state.questions = (
                 st.session_state.questions[:5]
             )
 
-            # ------------------------------------------------
-            # Answer
-            # ------------------------------------------------
 
-            st.markdown(
-                '<div class="section-title">💡 Answer</div>',
-                unsafe_allow_html=True
+            # =================================================
+            # DISPLAY ANSWER
+            # =================================================
+
+            st.subheader(
+                "💡 Answer"
             )
 
-            st.markdown(
-                '<div class="answer-card">',
-                unsafe_allow_html=True
-            )
+            with st.container(border=True):
 
-            if isinstance(
-                response.content,
-                list
-            ):
+                if isinstance(
+                    response.content,
+                    list
+                ):
 
-                for item in response.content:
+                    for item in response.content:
 
-                    if (
-                        isinstance(item, dict)
-                        and item.get("type") == "text"
-                    ):
+                        if (
+                            isinstance(item, dict)
+                            and item.get("type") == "text"
+                        ):
 
-                        st.markdown(
-                            item["text"]
-                        )
+                            st.markdown(
+                                item["text"]
+                            )
 
-            else:
+                else:
 
-                st.markdown(
-                    response.content
-                )
+                    st.markdown(
+                        response.content
+                    )
 
-            st.markdown(
-                '</div>',
-                unsafe_allow_html=True
-            )
 
-            # ------------------------------------------------
-            # Sources
-            # ------------------------------------------------
+            # =================================================
+            # DISPLAY SOURCES
+            # =================================================
 
-            st.markdown(
-                '<div class="section-title">📚 Sources</div>',
-                unsafe_allow_html=True
+            st.subheader(
+                "📚 Sources"
             )
 
             for i, doc in enumerate(
@@ -602,29 +493,39 @@ Question:
 
                 page = doc.metadata.get(
                     "page",
-                    "Unknown"
+                    None
                 )
 
                 if isinstance(page, int):
 
-                    page = page + 1
+                    page_number = page + 1
 
-                st.markdown(
-                    f"""
-                    <div class="source-card">
-                        📄 <b>Source {i}</b>
-                        &nbsp;&nbsp;|&nbsp;&nbsp;
-                        Page <b>{page}</b>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                elif page is not None:
+
+                    page_number = page
+
+                else:
+
+                    page_number = "Unknown"
+
+                with st.container(border=True):
+
+                    st.write(
+                        f"📄 **Source {i}**"
+                    )
+
+                    st.caption(
+                        f"Page {page_number}"
+                    )
+
 
         except Exception as e:
 
             st.error(
-                f"❌ Something went wrong: {e}"
+                "❌ Something went wrong."
             )
+
+            st.exception(e)
 
 
 # ============================================================
@@ -635,32 +536,29 @@ if st.session_state.questions:
 
     st.divider()
 
-    st.markdown(
-        '<div class="section-title">🕘 Recent Questions</div>',
-        unsafe_allow_html=True
+    st.subheader(
+        "🕘 Recent Questions"
     )
 
-    for q in st.session_state.questions:
+    for i, previous_question in enumerate(
+        st.session_state.questions,
+        start=1
+    ):
 
-        st.markdown(
-            f"""
-            <div class="source-card">
-                💬 {q}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        with st.container(border=True):
+
+            st.write(
+                f"**{i}.** {previous_question}"
+            )
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.markdown(
-    """
-    <div class="footer">
-        AI Financial Assistant • RAG-based Financial Report Analysis
-    </div>
-    """,
-    unsafe_allow_html=True
+st.divider()
+
+st.caption(
+    "💰 AI Financial Assistant • "
+    "RAG-based Financial Report Analysis"
 )
