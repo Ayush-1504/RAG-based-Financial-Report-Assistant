@@ -39,3 +39,80 @@ Relevant Context
 Google Gemini
     ↓
 AI-generated Answer + Sources
+
+🛠️ Tech Stack
+Python
+Streamlit
+LangChain
+FAISS
+Hugging Face
+Google Gemini
+PyPDF
+📂 Project Structure
+AI-Financial-Assistant/
+│
+├── app.py
+├── requirements.txt
+├── test_gemini.py
+├── .gitignore
+│
+├── utils/
+│   ├── embeddings.py
+│   ├── pdf_loader.py
+│   ├── rag_chain.py
+│   ├── retriever.py
+│   ├── text_splitter.py
+│   └── vector_store.py
+│
+└── README.md
+⚙️ How It Works
+User uploads a financial report in PDF format.
+The PDF is loaded and split into smaller text chunks.
+Hugging Face embeddings convert the chunks into vectors.
+FAISS stores the vectors and retrieves relevant information.
+Google Gemini generates an answer using the retrieved context.
+The application displays the answer along with source pages.
+💡 Example Questions
+What was Apple's total net sales in 2025?
+
+
+What products does Apple sell?
+
+
+What are Apple's major risk factors?
+
+
+What were Apple's revenues in different segments?
+💻 Run Locally
+git clone https://github.com/Ayush-1504/RAG-based-Financial-Report-Assistant.git
+
+
+cd RAG-based-Financial-Report-Assistant
+
+
+python -m venv venv
+
+
+venv\Scripts\activate
+
+
+pip install -r requirements.txt
+
+
+streamlit run app.py
+🔐 API Configuration
+
+Create a .env file:
+
+GOOGLE_API_KEY=your_google_api_key
+
+Never upload your API key to GitHub.
+
+👨‍💻 Author
+
+Ayush Sharma
+
+B.Tech Computer Science & Engineering
+Kalinga Institute of Industrial Technology
+
+GitHub
